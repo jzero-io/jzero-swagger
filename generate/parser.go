@@ -55,7 +55,7 @@ func parseRangeOption(option string) (float64, float64, bool) {
 	return min, max, true
 }
 
-func applyGenerate(p *plugin.Plugin, host string, basePath string, schemes string) (*swaggerObject, error) {
+func applyGenerate(p *plugin.Plugin, host string, basePath string, schemes string, route2code bool) (*swaggerObject, error) {
 	title, _ := strconv.Unquote(p.Api.Info.Properties["title"])
 	version, _ := strconv.Unquote(p.Api.Info.Properties["version"])
 	desc, _ := strconv.Unquote(p.Api.Info.Properties["desc"])
@@ -105,14 +105,14 @@ func applyGenerate(p *plugin.Plugin, host string, basePath string, schemes strin
 	// s.Security = append(s.Security, swaggerSecurityRequirementObject{"apiKey": []string{}})
 
 	requestResponseRefs := refMap{}
-	renderServiceRoutes(p.Api.Service, p.Api.Service.Groups, s.Paths, requestResponseRefs)
+	renderServiceRoutes(p.Api.Service, p.Api.Service.Groups, s.Paths, requestResponseRefs, route2code)
 
 	renderReplyAsDefinition(s.Definitions, p.Api.Types, requestResponseRefs)
 
 	return &s, nil
 }
 
-func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swaggerPathsObject, requestResponseRefs refMap) {
+func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swaggerPathsObject, requestResponseRefs refMap, route2code bool) {
 	for _, group := range groups {
 		for _, route := range group.Routes {
 			path := group.GetAnnotation("prefix") + route.Path
@@ -179,7 +179,6 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 						parameters = append(parameters, renderStruct(member))
 					}
 				} else {
-
 					reqRef := fmt.Sprintf("#/definitions/%s", route.RequestType.Name())
 
 					if len(route.RequestType.Name()) > 0 {
@@ -197,7 +196,7 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 						}
 
 						doc := strings.Join(route.RequestType.Documents(), ",")
-						doc = strings.Replace(doc, "//", "", -1)
+						doc = strings.ReplaceAll(doc, "//", "")
 
 						if doc != "" {
 							parameter.Description = doc
@@ -218,7 +217,6 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 			// respRef := swaggerSchemaObject{}
 			if route.ResponseType != nil && len(route.ResponseType.Name()) > 0 {
 				if strings.HasPrefix(route.ResponseType.Name(), "[]") {
-
 					refTypeName := strings.Replace(route.ResponseType.Name(), "[", "", 1)
 					refTypeName = strings.Replace(refTypeName, "]", "", 1)
 
@@ -231,7 +229,6 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 					if ok {
 						respSchema.Ref = fmt.Sprintf("#/definitions/%s", ftype)
 					}
-
 				}
 			}
 			tags := service.Name
@@ -314,6 +311,16 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 			// set OperationID
 			operationObject.OperationID = route.Handler
 
+			if route.GetAnnotation("prefix") != "" {
+				route.Path = route.GetAnnotation("prefix") + route.Path
+			}
+			h := strings.TrimSuffix(route.Handler, "Handler")
+			g := group.GetAnnotation("group")
+
+			if route2code {
+				operationObject.Description = "接口权限编码" + ":" + FirstLower(strings.ReplaceAll(g, "/", ":")) + ":" + FirstLower(h)
+			}
+
 			for _, param := range operationObject.Parameters {
 				if param.Schema != nil && param.Schema.Ref != "" {
 					requestResponseRefs[param.Schema.Ref] = struct {
@@ -364,7 +371,7 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 }
 
 func renderStruct(member spec.Member) swaggerParameterObject {
-	tempKind := swaggerMapTypes[strings.Replace(member.Type.Name(), "[]", "", -1)]
+	tempKind := swaggerMapTypes[strings.ReplaceAll(member.Type.Name(), "[]", "")]
 
 	ftype, format, ok := primitiveSchema(tempKind, member.Type.Name())
 	if !ok {
@@ -547,10 +554,10 @@ func schemaOfField(member spec.Member) swaggerSchemaObject {
 	var props *swaggerSchemaObjectProperties
 
 	comment := member.GetComment()
-	comment = strings.Replace(comment, "//", "", -1)
+	comment = strings.ReplaceAll(comment, "//", "")
 
 	switch ft := kind; ft {
-	case reflect.Invalid: //[]Struct 也有可能是 Struct
+	case reflect.Invalid: // []Struct 也有可能是 Struct
 		// []Struct
 		// map[ArrayType:map[Star:map[StringExpr:UserSearchReq] StringExpr:*UserSearchReq] StringExpr:[]*UserSearchReq]
 		refTypeName := strings.Replace(member.Type.Name(), "[", "", 1)
@@ -567,21 +574,20 @@ func schemaOfField(member spec.Member) swaggerSchemaObject {
 		} else if strings.HasPrefix(refTypeName, "[]") {
 			core = schemaCore{Type: "array"}
 
-			tempKind := swaggerMapTypes[strings.Replace(refTypeName, "[]", "", -1)]
+			tempKind := swaggerMapTypes[strings.ReplaceAll(refTypeName, "[]", "")]
 			ftype, format, ok := primitiveSchema(tempKind, refTypeName)
 			if ok {
 				core.Items = &swaggerItemsObject{Type: ftype, Format: format}
 			} else {
 				core.Items = &swaggerItemsObject{Type: ft.String(), Format: "UNKNOWN"}
 			}
-
 		} else {
 			core = schemaCore{
 				Ref: "#/definitions/" + refTypeName,
 			}
 		}
 	case reflect.Slice:
-		tempKind := swaggerMapTypes[strings.Replace(member.Type.Name(), "[]", "", -1)]
+		tempKind := swaggerMapTypes[strings.ReplaceAll(member.Type.Name(), "[]", "")]
 		ftype, format, ok := primitiveSchema(tempKind, member.Type.Name())
 
 		if ok {
@@ -697,7 +703,7 @@ func primitiveSchema(kind reflect.Kind, t string) (ftype, format string, ok bool
 	case reflect.Float64:
 		return "number", "double", true
 	case reflect.Slice:
-		return strings.Replace(t, "[]", "", -1), "", true
+		return strings.ReplaceAll(t, "[]", ""), "", true
 	default:
 		return "", "", false
 	}
@@ -709,7 +715,7 @@ func stringToBytes(s string) (b []byte) {
 		&struct {
 			string
 			Cap int
-		}{s, len(s)},
+		}{string: s, Cap: len(s)},
 	))
 }
 
@@ -731,8 +737,7 @@ func contains(s []string, str string) bool {
 }
 
 func parseHeader(m spec.Member, parameters []swaggerParameterObject) []swaggerParameterObject {
-
-	tempKind := swaggerMapTypes[strings.Replace(m.Type.Name(), "[]", "", -1)]
+	tempKind := swaggerMapTypes[strings.ReplaceAll(m.Type.Name(), "[]", "")]
 	ftype, format, ok := primitiveSchema(tempKind, m.Type.Name())
 	if !ok {
 		ftype = tempKind.String()
@@ -811,4 +816,11 @@ func findRequestResponsePrimitiveSchema(ref refMap) []string {
 		}
 	}
 	return response
+}
+
+func FirstLower(s string) string {
+	if len(s) > 0 {
+		return strings.ToLower(string(s[0])) + s[1:]
+	}
+	return s
 }

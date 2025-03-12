@@ -1,9 +1,10 @@
 package action
 
 import (
-	"github.com/jzero-io/goctl-swagger/generate"
 	"github.com/urfave/cli/v2"
 	"github.com/zeromicro/go-zero/tools/goctl/plugin"
+
+	"github.com/jzero-io/goctl-swagger/generate"
 )
 
 func Generator(ctx *cli.Context) error {
@@ -20,5 +21,6 @@ func Generator(ctx *cli.Context) error {
 	basepath := ctx.String("basepath")
 	host := ctx.String("host")
 	schemes := ctx.String("schemes")
-	return generate.Do(fileName, host, basepath, schemes, p)
+	route2code := ctx.Bool("route2code")
+	return generate.Do(fileName, host, basepath, schemes, route2code, p)
 }

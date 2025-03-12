@@ -5,12 +5,13 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/jzero-io/goctl-swagger/action"
 	"github.com/urfave/cli/v2"
+
+	"github.com/jzero-io/goctl-swagger/action"
 )
 
 var (
-	version  = "20220621"
+	version  = "v1.1.0"
 	commands = []*cli.Command{
 		{
 			Name:   "swagger",
@@ -32,6 +33,10 @@ var (
 				&cli.StringFlag{
 					Name:  "schemes",
 					Usage: "swagger support schemes: http, https, ws, wss",
+				},
+				&cli.BoolFlag{
+					Name:  "route2code",
+					Usage: "route2code flag from jzero to generate route code mapping",
 				},
 			},
 		},

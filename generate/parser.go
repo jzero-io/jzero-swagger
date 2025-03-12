@@ -203,6 +203,23 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 						}
 
 						parameters = append(parameters, parameter)
+
+						for _, member := range defineStruct.Members {
+							if hasPathParameters(member) || hasHeaderParameters(member) {
+								continue
+							}
+							if embedStruct, isEmbed := member.Type.(spec.DefineStruct); isEmbed {
+								for _, m := range embedStruct.Members {
+									if m.IsFormMember() {
+										parameters = append(parameters, renderStruct(m))
+									}
+								}
+								continue
+							}
+							if member.IsFormMember() {
+								parameters = append(parameters, renderStruct(member))
+							}
+						}
 					}
 				}
 			}
@@ -255,9 +272,13 @@ func renderServiceRoutes(service spec.Service, groups []spec.Group, paths swagge
 
 			if defineStruct, ok := route.RequestType.(spec.DefineStruct); ok {
 				for _, member := range defineStruct.Members {
-					if member.IsFormMember() {
-						operationObject.Consumes = []string{"multipart/form-data"}
+					if member.IsBodyMember() {
+						// 只要有 json tag, 那么就是 application/json 请求
+						operationObject.Consumes = []string{"application/json"}
 						break
+					} else if member.IsFormMember() {
+						// 在 post 请求下, 只有全部是 form 才表示是 multipart/form-data
+						operationObject.Consumes = []string{"multipart/form-data"}
 					}
 				}
 			}

@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/jzero-io/jzero-swagger/action"
+	"github.com/urfave/cli/v2"
 	"os"
 	"runtime"
-
-	"github.com/urfave/cli/v2"
-
-	"github.com/jzero-io/goctl-swagger/action"
 )
 
 var (
@@ -45,10 +43,10 @@ var (
 
 func main() {
 	app := cli.NewApp()
-	app.Usage = "a plugin of goctl to generate swagger.json"
+	app.Usage = "a plugin of jzero to generate swagger.json"
 	app.Version = fmt.Sprintf("%s %s/%s", version, runtime.GOOS, runtime.GOARCH)
 	app.Commands = commands
 	if err := app.Run(os.Args); err != nil {
-		fmt.Printf("goctl-swagger: %+v\n", err)
+		fmt.Printf("jzero-swagger: %+v\n", err)
 	}
 }

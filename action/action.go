@@ -4,7 +4,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/zeromicro/go-zero/tools/goctl/plugin"
 
-	"github.com/jzero-io/goctl-swagger/generate"
+	"github.com/jzero-io/jzero-swagger/generate"
 )
 
 func Generator(ctx *cli.Context) error {

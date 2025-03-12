@@ -1,4 +1,4 @@
-module github.com/jzero-io/goctl-swagger
+module github.com/jzero-io/jzero-swagger
 
 go 1.21
 
